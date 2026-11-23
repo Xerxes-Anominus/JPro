@@ -4,7 +4,8 @@ import java.nio.file.*;
 public class T{
     public static void main(String[] a) throws Exception{
         String src = new String(Files.readAllBytes(Paths.get(a[0])), "UTF-8");
-        JPro.Result r = JPro.compile(src);
+        int level = a.length > 1 ? Integer.parseInt(a[1]) : 2;
+        JPro.Result r = JPro.compile(src, level);
         if(!r.ok()){
             for(JProError e : r.errors) System.out.println("LỖI " + e.getMessage());
             return;
