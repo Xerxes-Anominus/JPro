@@ -1,0 +1,18 @@
+name: java-processor
+displayName: Java Processor
+
+description: ""
+subtitle: ""
+
+author: "[#9B59D0]X[#B56BE8]e[#D86FEA]a[#FF69B4]n[]"
+
+version: 1
+minGameVersion: 160
+
+hidden: false
+hideBrowser: false
+
+java: true
+main: jpro.JProMod
+
+dependencies: []
