@@ -47,10 +47,16 @@ public class JProEditor{
         final BaseDialog dialog = new BaseDialog(Core.bundle.get("jpro.editor.title") + " - " + Core.bundle.get("jpro.level." + build.level()));
         final String[] status = {""};
         final JProTextArea area = new JProTextArea(build.source, Styles.areaField);
-        final Label gutter = new Label("1");
-        gutter.setColor(Color.gray);
+        // Gutter must use the exact same font/line metrics as the TextArea.
+        // Label's default font can differ from Styles.areaField and causes line numbers
+        // to drift vertically from the code, especially with scaled fonts.
+        final Label gutter = new Label("1", new Label.LabelStyle(Styles.areaField.font, Color.gray));
         gutter.setAlignment(Align.top | Align.right);
         gutter.setWrap(false);
+        // Match the TextArea's top inset so line 1 starts at the same baseline.
+        if(Styles.areaField.background != null){
+            gutter.padTop(Styles.areaField.background.getTopHeight());
+        }
         final Table editorRow = new Table();
         editorRow.add(gutter).width(42f).top().padRight(5f);
         editorRow.add(area).grow().top();
@@ -293,7 +299,9 @@ public class JProEditor{
             for(Builtins.Builtin b : Builtins.all()){
                 String key = b.key;
                 int dot = key.indexOf('.');
-                String group = dot < 0 ? Core.bundle.get("jpro.group.common") : key.substring(0, dot);
+                String groupKey = dot < 0 ? "common" : key.substring(0, dot);
+                String groupBundleKey = "jpro.group." + groupKey;
+                String group = Core.bundle.has(groupBundleKey) ? Core.bundle.get(groupBundleKey) : groupKey;
                 if(!group.equals(lastGroup)){
                     t.add("[accent]== " + group + " ==").padTop(12f).row();
                     lastGroup = group;

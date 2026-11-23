@@ -85,7 +85,7 @@ public final class JDraw{
             Draw.color(cur);
         });
         h("z", (a, b, c, d, e, f) -> Draw.z(a));
-        h("col", (a, b, c, d, e, f) -> Draw.color(a));
+        h("col", (a, b, c, d, e, f) -> { cur.set(a); Draw.color(cur); });
         h("blend", (a, b, c, d, e, f) -> setBlend((int)a));
         h("blendreset", (a, b, c, d, e, f) -> resetBlend());
         h("stroke", (a, b, c, d, e, f) -> Lines.stroke(a));
