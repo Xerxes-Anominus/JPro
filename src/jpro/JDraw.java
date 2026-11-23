@@ -85,6 +85,9 @@ public final class JDraw{
             Draw.color(cur);
         });
         h("z", (a, b, c, d, e, f) -> Draw.z(a));
+        h("col", (a, b, c, d, e, f) -> Draw.color(a));
+        h("blend", (a, b, c, d, e, f) -> setBlend((int)a));
+        h("blendreset", (a, b, c, d, e, f) -> resetBlend());
         h("stroke", (a, b, c, d, e, f) -> Lines.stroke(a));
 
         // Lines
@@ -139,6 +142,22 @@ public final class JDraw{
         active.remove(b, true);
     }
 
+    /** Arc blending is invoked reflectively to tolerate API variation. */
+    private static void setBlend(int mode){
+        String[] names = {"normal", "additive", "multiply", "screen", "disabled"};
+        if(mode < 0 || mode >= names.length) mode = 0;
+        try{
+            Class<?> blending = Class.forName("arc.graphics.Blending");
+            Object value = blending.getField(names[mode]).get(null);
+            Draw.class.getMethod("blend", blending).invoke(null, value);
+        }catch(Throwable ignored){ resetBlend(); }
+    }
+
+    private static void resetBlend(){
+        try{ Draw.class.getMethod("blend").invoke(null); }
+        catch(Throwable ignored){ setBlend(0); }
+    }
+
     private static void render(){
         if(active.isEmpty()) return;
         for(int i = active.size - 1; i >= 0; i--){
@@ -166,6 +185,7 @@ public final class JDraw{
         }
 
         Draw.reset();
+        resetBlend();
         Lines.stroke(1f);
     }
 }

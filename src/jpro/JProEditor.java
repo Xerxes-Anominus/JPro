@@ -97,6 +97,40 @@ public class JProEditor{
             status[0] = Core.bundle.format("jpro.mlog.copied", r.instructions());
         });
         dialog.buttons.button("@jpro.vars", () -> showVars(area.getText()));
+        dialog.buttons.button("@jpro.copy", Icon.copy, () -> {
+            Core.app.setClipboardText(area.getText());
+            status[0] = Core.bundle.get("jpro.copy.success");
+        });
+        dialog.buttons.button("@jpro.paste", () -> {
+            String clip = Core.app.getClipboardText();
+            if(clip == null || clip.isEmpty()){
+                status[0] = Core.bundle.get("jpro.paste.empty");
+                return;
+            }
+            String src = area.getText();
+            area.setText(src + (src.isEmpty() || src.endsWith("\n") ? "" : "\n\n") + clip);
+            status[0] = Core.bundle.get("jpro.paste.success");
+        });
+        dialog.buttons.button("@jpro.export", () -> {
+            String exported = extractDeclarations(area.getText());
+            if(exported.isEmpty()){
+                status[0] = Core.bundle.get("jpro.export.empty");
+                return;
+            }
+            Core.app.setClipboardText(exported);
+            status[0] = Core.bundle.get("jpro.export.success");
+        });
+        dialog.buttons.button("@jpro.clear", () -> {
+            BaseDialog confirm = new BaseDialog("@jpro.clear.title");
+            confirm.cont.add("@jpro.clear.confirm").wrap().width(360f).pad(8f);
+            confirm.buttons.button("@cancel", Icon.cancel, confirm::hide).size(140f, 60f);
+            confirm.buttons.button("@jpro.clear", () -> {
+                area.setText("");
+                status[0] = Core.bundle.get("jpro.clear.success");
+                confirm.hide();
+            }).size(140f, 60f);
+            confirm.show();
+        });
         dialog.buttons.button("@jpro.help", Icon.info, () -> showHelp(build.level()));
         dialog.buttons.button("@jpro.saveclose", Icon.ok, dialog::hide);
         dialog.closeOnBack();
@@ -205,6 +239,36 @@ public class JProEditor{
         d.show();
     }
 
+
+    /** Export top-level variable declarations and function definitions as a reusable snippet. */
+    private static String extractDeclarations(String src){
+        StringBuilder out = new StringBuilder();
+        Matcher vars = DECL.matcher(src);
+        while(vars.find()) out.append(vars.group()).append('\n');
+        Matcher funcs = FUNC.matcher(src);
+        while(funcs.find()){
+            int open = src.indexOf('{', funcs.start());
+            if(open < 0) continue;
+            int depth = 0;
+            boolean inString = false, escaped = false;
+            for(int i = open; i < src.length(); i++){
+                char ch = src.charAt(i);
+                if(inString){
+                    if(escaped) escaped = false;
+                    else if(ch == '\\') escaped = true;
+                    else if(ch == '"') inString = false;
+                    continue;
+                }
+                if(ch == '"'){ inString = true; continue; }
+                if(ch == '{') depth++;
+                else if(ch == '}' && --depth == 0){
+                    out.append(src, funcs.start(), i + 1).append('\n');
+                    break;
+                }
+            }
+        }
+        return out.toString().trim();
+    }
 
     private static void moveCursor(TextArea area, String src, int line, int col){
         int pos = 0, ln = 1;

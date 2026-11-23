@@ -9,6 +9,8 @@ import mindustry.ui.*;
 import mindustry.world.blocks.ConstructBlock.*;
 import mindustry.world.blocks.logic.*;
 
+import jpro.lang.JPro;
+
 /**
  * Processor nhập mã bằng ngôn ngữ JPro. Mã JPro được biên dịch ra mlog rồi nạp vào processor như bình thường.
  *
@@ -42,8 +44,18 @@ public class JProProcessor extends LogicBlock{
             canOverdrive = false;
         }
 
-        // Đồng bộ mã nguồn JPro tới mọi người chơi (mlog đã được đồng bộ qua cấu hình mặc định)
-        config(String.class, (JProBuild build, String src) -> build.source = src);
+        // Source JPro được lưu bằng cấu hình String: schematic/clipboard của Mindustry có thể
+        // giữ cấu hình này độc lập với mlog. Khi bản sao được đặt, biên dịch lại mlog từ source.
+        // Đây cũng giúp khôi phục source khi khối bị phá rồi đặt lại từ bản copy.
+        config(String.class, (JProBuild build, String src) -> {
+            if(src == null) return;
+            build.source = src;
+            JPro.Result result = JPro.compile(src, build.level());
+            if(result.ok()){
+                byte[] packed = LogicBlock.compress(result.mlog, build.relativeConnections());
+                if(packed.length <= 16_000) build.configure(packed);
+            }
+        });
     }
 
     /** Khối của mod luôn cho phép cấu hình (LogicBlock mặc định khóa processor đặc quyền ngoài editor). */
