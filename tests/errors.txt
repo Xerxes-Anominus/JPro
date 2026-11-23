@@ -1,1 +1,7 @@
-
+Các chương trình sai và lỗi mong đợi (chạy: java -cp <out> T file.jpro):
+  int x = 5                      -> Thiếu ';' ở cuối câu lệnh
+  final int N = 3; N = 4;        -> 'N' là hằng (final/const), không gán lại được
+  int f(int a){ print(a); }      -> Hàm 'f' kiểu int thiếu câu lệnh return giá_trị;
+  void g(){ return 1; }          -> Hàm void 'g' không được trả về giá trị
+  switch có case x: không break  -> JPro không hỗ trợ rơi xuống case kế tiếp (fall-through)
+  final double h = len(..); h = 2; -> 'h' là biến final, không gán lại được
