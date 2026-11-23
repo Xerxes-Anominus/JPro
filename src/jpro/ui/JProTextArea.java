@@ -39,6 +39,7 @@ public class JProTextArea extends TextArea{
     private Font cachedFont;
     private float longest;
     private ScrollPane scroller;
+    private Runnable textChanged;
 
     public JProTextArea(String text, TextFieldStyle style){
         super(text, style);
@@ -46,13 +47,21 @@ public class JProTextArea extends TextArea{
         // nội dung đổi -> tính lại kích thước, và cuộn theo con trỏ
         changed(() -> {
             invalidateHierarchy();
-            Core.app.post(this::scrollToCursor);
+            Core.app.post(() -> {
+                scrollToCursor();
+                if(textChanged != null) textChanged.run();
+            });
         });
     }
 
     /** ScrollPane chứa ô này, để tự cuộn theo con trỏ khi gõ. */
     public void setScroller(ScrollPane pane){
         this.scroller = pane;
+    }
+
+    /** Callback for editor features (such as the line-number gutter) without replacing TextArea handling. */
+    public void setOnTextChanged(Runnable callback){
+        this.textChanged = callback;
     }
 
     private float padX(){
