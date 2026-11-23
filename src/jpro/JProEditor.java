@@ -53,12 +53,10 @@ public class JProEditor{
         final Label gutter = new Label("1", new Label.LabelStyle(Styles.areaField.font, Color.gray));
         gutter.setAlignment(Align.top | Align.right);
         gutter.setWrap(false);
-        // Match the TextArea's top inset so line 1 starts at the same baseline.
-        if(Styles.areaField.background != null){
-            gutter.padTop(Styles.areaField.background.getTopHeight());
-        }
+        // Match the TextArea's top inset through the table cell (Label has no padTop method).
+        final float gutterTopInset = Styles.areaField.background == null ? 0f : Styles.areaField.background.getTopHeight();
         final Table editorRow = new Table();
-        editorRow.add(gutter).width(42f).top().padRight(5f);
+        editorRow.add(gutter).width(42f).top().padRight(5f).padTop(gutterTopInset);
         editorRow.add(area).grow().top();
         final ScrollPane pane = new ScrollPane(editorRow, Styles.defaultPane);
         area.setScroller(pane);
