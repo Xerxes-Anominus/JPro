@@ -12,10 +12,8 @@ public class JProBlocks{
     public static void load(){
         codeProcessor = new JProProcessor("code-processor"){{
             requirements(Category.logic, with(Items.copper, 200, Items.lead, 100, Items.graphite, 80, Items.silicon, 120));
-
-            size = 2;
-            // Giống world-processor: chạy lệnh đặc quyền, liên kết với mọi khối trên bản đồ
-            privileged = true;
+            
+            buildVisibility = BuildVisibility.debugOnly;
             range = Float.MAX_VALUE;
             instructionsPerTick = 25;      // mặc định; dùng setRate(n) trong mã để tăng
             maxInstructionsPerTick = 500;  // trần giống world-processor
