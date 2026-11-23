@@ -59,6 +59,16 @@ final class Node{
         boolean isFinal;
         Let(String name, Expr init, boolean isConst){ this.name = name; this.init = init; this.isConst = isConst; }
     }
+    /** export <name>; / exportFunc <name>; */
+    static final class ExportDecl extends Stmt{
+        final String name; final boolean function;
+        ExportDecl(String name, boolean function){ this.name = name; this.function = function; }
+    }
+    /** import processorN.<name>; / importFunc processorN.<name>; */
+    static final class ImportDecl extends Stmt{
+        final String processor, name; final boolean function;
+        ImportDecl(String processor, String name, boolean function){ this.processor = processor; this.name = name; this.function = function; }
+    }
     static final class FnDecl extends Stmt{
         final String name; final List<String> params; final Block body;
         FnDecl(String name, List<String> params, Block body){ this.name = name; this.params = params; this.body = body; }

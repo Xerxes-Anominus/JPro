@@ -147,6 +147,10 @@ final class Parser{
         if(k.type == Tok.IDENT){
             if(Syntax.MODIFIERS.contains(k.text)) return modified(top);
             switch(k.text){
+                case "export": if(!top) throw err(k, "export chỉ được khai báo ở ngoài cùng"); return exportDecl(false);
+                case "exportFunc": if(!top) throw err(k, "exportFunc chỉ được khai báo ở ngoài cùng"); return exportDecl(true);
+                case "import": if(!top) throw err(k, "import chỉ được khai báo ở ngoài cùng"); return importDecl(false);
+                case "importFunc": if(!top) throw err(k, "importFunc chỉ được khai báo ở ngoài cùng"); return importDecl(true);
                 case "let": case "var": return let(false);
                 case "const": return let(true);
                 case "fn":
@@ -193,6 +197,26 @@ final class Parser{
         }
         if(k.is("{")) return block();
         return simple(true);
+    }
+
+    /** export tên; hoặc exportFunc tên; */
+    private Stmt exportDecl(boolean function){
+        Tok k = next();
+        String name = ident(function ? "tên hàm export" : "tên biến export");
+        endStmt();
+        return mark(new ExportDecl(name, function), k);
+    }
+
+    /** import processorN.tên; hoặc importFunc processorN.tên; */
+    private Stmt importDecl(boolean function){
+        Tok k = next();
+        String processor = ident("alias processor (processor1, processor2, ...)");
+        if(!processor.matches("processor[1-9][0-9]*"))
+            throw err(k, "Alias import phải có dạng processor1, processor2, ...");
+        expect(".");
+        String name = ident(function ? "tên hàm import" : "tên biến import");
+        endStmt();
+        return mark(new ImportDecl(processor, name, function), k);
     }
 
     /** Bắt đầu bằng final / static / public / private / protected. */

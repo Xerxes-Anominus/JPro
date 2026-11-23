@@ -61,6 +61,12 @@ public final class GfxOps{
         // ----- Draw: trạng thái vẽ -----
         add("Draw.color", "r, g, b, a=255", "color", "{0} {1} {2} {3|255} 0 0", 0,
             "Đặt màu vẽ cho các lệnh sau (mỗi kênh 0..255)");
+        add("Draw.colorPacked", "màu", "col", "{0} 0 0 0 0 0", 0,
+            "Đặt màu vẽ từ màu packed (vd: #ff8800 hoặc packColor(r,g,b,a))");
+        add("Draw.blend", "chế_độ", "blend", "{0} 0 0 0 0 0", 0,
+            "Đặt blending: 0=normal, 1=additive, 2=multiply, 3=screen, 4=disabled");
+        add("Draw.blendReset", "", "blendreset", "0 0 0 0 0 0", 0,
+            "Đặt blending về normal");
         add("Draw.alpha", "độ_mờ", "alpha", "{0} 0 0 0 0 0", 0,
             "Đổi độ mờ của màu hiện tại (0..255)");
         add("Draw.z", "lớp", "z", "{0} 0 0 0 0 0", 0,

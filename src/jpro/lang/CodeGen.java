@@ -66,6 +66,10 @@ final class CodeGen{
     }
 
     private final Map<String, Fn> fns = new LinkedHashMap<>();
+    final Set<String> exportedVars = new LinkedHashSet<>();
+    final Set<String> exportedFns = new LinkedHashSet<>();
+    final List<ImportDecl> importedVars = new ArrayList<>();
+    final List<ImportDecl> importedFns = new ArrayList<>();
     private final Map<String, Object> consts = new HashMap<>();
     /** Biến final có giá trị chỉ biết lúc chạy: chỉ được gán lúc khai báo. Khóa = hàm + "." + tên. */
     private final Set<String> finals = new HashSet<>();
@@ -128,8 +132,39 @@ final class CodeGen{
     // ---------- chương trình ----------
     void generate(List<Stmt> prog){
         List<Stmt> main = new ArrayList<>();
+        Set<String> declaredVars = new LinkedHashSet<>();
+        Set<String> declaredFns = new LinkedHashSet<>();
+        Set<String> exportKeys = new HashSet<>();
         for(Stmt s : prog){
-            if(s instanceof FnDecl){
+            if(s instanceof ExportDecl){
+                ExportDecl e = (ExportDecl)s;
+                String key = (e.function ? "f:" : "v:") + e.name;
+                if(!exportKeys.add(key)) errors.add(err(e, "Export bị khai báo lặp: " + e.name));
+                (e.function ? exportedFns : exportedVars).add(e.name);
+            }else if(s instanceof ImportDecl){
+                ImportDecl i = (ImportDecl)s;
+                (i.function ? importedFns : importedVars).add(i);
+            }else if(s instanceof Let){
+                declaredVars.add(((Let)s).name);
+            }else if(s instanceof FnDecl){
+                declaredFns.add(((FnDecl)s).name);
+            }
+        }
+        for(String n : exportedVars) if(!declaredVars.contains(n)) errors.add(new JProError(1, 1, "Export biến '" + n + "' chưa được khai báo"));
+        for(String n : exportedFns) if(!declaredFns.contains(n)) errors.add(new JProError(1, 1, "Export hàm '" + n + "' chưa được khai báo"));
+        Set<String> importKeys = new HashSet<>();
+        for(ImportDecl i : importedVars){
+            String key = i.processor + "." + i.name;
+            if(!importKeys.add("v:" + key)) errors.add(err(i, "Import biến bị lặp: " + key));
+        }
+        for(ImportDecl i : importedFns){
+            String key = i.processor + "." + i.name;
+            if(!importKeys.add("f:" + key)) errors.add(err(i, "Import hàm bị lặp: " + key));
+        }
+        for(Stmt s : prog){
+            if(s instanceof ExportDecl || s instanceof ImportDecl){
+                // declarations handled in metadata pass above
+            }else if(s instanceof FnDecl){
                 try{
                     declareFn((FnDecl)s);
                 }catch(JProError e){
@@ -142,6 +177,10 @@ final class CodeGen{
         }catch(JProError e){
             errors.add(e);
         }
+        // Directives are metadata only in this compiler pass. Import resolution requires linked processor context,
+        // which is provided by the runtime/editor linking integration (not standalone compilation).
+        for(ImportDecl i : importedVars) errors.add(err(i, "Import '" + i.processor + "." + i.name + "' chưa được resolve: cần link processor và bộ phân giải import"));
+        for(ImportDecl i : importedFns) errors.add(err(i, "Import hàm '" + i.processor + "." + i.name + "' chưa được resolve: cần link processor và bộ phân giải import"));
         for(Stmt s : main) safe(s);
         if(!fns.isEmpty()){
             emit("end");

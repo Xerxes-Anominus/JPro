@@ -16,7 +16,8 @@ public final class Syntax{
     /** Điều khiển luồng: if, for, switch, return... (và các từ riêng của JPro: once, end, stop). */
     public static final Set<String> CONTROL = set(
         "if", "else", "while", "for", "loop", "switch", "case", "default",
-        "break", "continue", "return", "end", "stop", "once", "asm"
+        "break", "continue", "return", "end", "stop", "once", "asm",
+        "export", "exportFunc", "import", "importFunc"
     );
 
     /** Khai báo và bổ từ: final, static, void... (let / var / const / fn là cách viết cũ, vẫn dùng được). */
