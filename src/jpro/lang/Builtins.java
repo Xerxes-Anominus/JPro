@@ -1,5 +1,7 @@
 package jpro.lang;
 
+import arc.Core;
+
 import java.util.*;
 
 /**
@@ -37,8 +39,8 @@ public final class Builtins{
 
         Builtin(String key, String sig, String template, String doc){
             this.key = key;
-            this.sig = sig;
-            this.doc = doc;
+            this.sig = localized("jpro.builtin." + key + ".sig", sig);
+            this.doc = localized("jpro.builtin." + key + ".doc", doc);
             this.world = isWorldKey(key);
             List<Part> ps = new ArrayList<>();
             int max = 0, min = 0;
@@ -95,6 +97,10 @@ public final class Builtins{
         if(dot < 0) return key.equals("sync") || key.equals("localePrint");
         String ns = key.substring(0, dot);
         return ns.equals("world") || ns.equals("cutscene") || GfxOps.isWorldNamespace(ns);
+    }
+
+    private static String localized(String key, String fallback){
+        return Core.bundle.has(key) ? Core.bundle.get(key) : fallback;
     }
 
     private static void add(String key, String sig, String tpl, String doc){
