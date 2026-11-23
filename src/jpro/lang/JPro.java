@@ -29,7 +29,13 @@ public final class JPro{
         }
     }
 
+    /** Biên dịch cho processor cấp 2 (world). */
     public static Result compile(String src){
+        return compile(src, 2);
+    }
+
+    /** level 1 = như logic processor (không có lệnh world, Draw/Fill/Lines...), level 2 = như world processor. */
+    public static Result compile(String src, int level){
         List<JProError> errs = new ArrayList<>();
         List<Stmt> prog;
         try{
@@ -38,7 +44,7 @@ public final class JPro{
             errs.add(e);
             return new Result("", errs);
         }
-        CodeGen cg = new CodeGen();
+        CodeGen cg = new CodeGen(level);
         try{
             cg.generate(prog);
         }catch(JProError e){

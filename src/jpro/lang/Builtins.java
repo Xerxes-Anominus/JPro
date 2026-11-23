@@ -28,6 +28,8 @@ public final class Builtins{
 
     public static final class Builtin{
         public final String key, sig, doc;
+        /** true = chỉ dùng được ở Processor cấp 2 (world); lệnh mlog tương ứng là lệnh "đặc quyền". */
+        public final boolean world;
         final Part[] parts;
         final int[] kinds;
         final int minArgs, maxArgs;
@@ -37,6 +39,7 @@ public final class Builtins{
             this.key = key;
             this.sig = sig;
             this.doc = doc;
+            this.world = isWorldKey(key);
             List<Part> ps = new ArrayList<>();
             int max = 0, min = 0;
             boolean res = false;
@@ -85,6 +88,14 @@ public final class Builtins{
     }
 
     private static final Map<String, Builtin> MAP = new LinkedHashMap<>();
+
+    /** Nhóm hàm chỉ có ở cấp 2: world.*, cutscene.*, Draw/Drawf/Lines/Fill.*, và vài hàm đơn lẻ. */
+    static boolean isWorldKey(String key){
+        int dot = key.indexOf('.');
+        if(dot < 0) return key.equals("sync") || key.equals("localePrint");
+        String ns = key.substring(0, dot);
+        return ns.equals("world") || ns.equals("cutscene") || GfxOps.isWorldNamespace(ns);
+    }
 
     private static void add(String key, String sig, String tpl, String doc){
         MAP.put(key, new Builtin(key, sig, tpl, doc));
@@ -200,7 +211,10 @@ public final class Builtins{
         add("draw.reset", "", "draw reset 0 0 0 0 0 0", "Đặt lại translate/scale/rotate");
 
         // ----- Điều khiển lính (unit) -----
-        add("unit.bind", "loại", "ubind {0}", "Chọn một lính thuộc loại này để điều khiển (vd: unit.bind(@poly))");
+        add("unit.bind", "loại [, số_lượng]", "ubind {0}",
+            "unit.bind(@poly): chọn lính kế tiếp thuộc loại này (như ubind, không lọc). " +
+            "unit.bind(@poly, 5): chỉ giữ tối đa 5 lính, tự bỏ qua lính đang bị processor/người chơi khác điều khiển; " +
+            "mỗi lần gọi chuyển sang lính kế tiếp trong nhóm và trả về true nếu bind được");
         add("unit.unbind", "", "ucontrol unbind 0 0 0 0 0", "Thả lính đang điều khiển");
         add("unit.idle", "", "ucontrol idle 0 0 0 0 0", "Đứng yên, tự hành động");
         add("unit.stop", "", "ucontrol stop 0 0 0 0 0", "Dừng mọi thứ");
@@ -255,6 +269,9 @@ public final class Builtins{
         add("cutscene.pan", "x, y, tốc_độ", "cutscene pan {0} {1} {2} 0", "Đưa camera tới (x, y)");
         add("cutscene.zoom", "mức", "cutscene zoom {0} 0 0 0", "Thu phóng camera");
         add("cutscene.stop", "", "cutscene stop 0 0 0 0", "Trả camera về người chơi");
+
+        // ----- Vẽ lên thế giới: Draw, Drawf, Lines, Fill (cấp 2) -----
+        for(GfxOps.Op o : GfxOps.ALL) add(o.key, o.sig, o.template, o.doc);
     }
 
     private Builtins(){}

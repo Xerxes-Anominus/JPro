@@ -45,8 +45,26 @@ final class CodeGen{
         NEG.put("equal", "notEqual"); NEG.put("notEqual", "equal");
     }
 
+    /** Lệnh mlog "đặc quyền": chỉ chạy được ở processor cấp 2 (world). Dùng để kiểm tra khối asm ở cấp 1. */
+    static final Set<String> PRIVILEGED_OPS = new HashSet<>(Arrays.asList(
+        "getblock", "setblock", "spawn", "bullet", "status", "weathersense", "weatherset", "spawnwave", "setrule",
+        "message", "cutscene", "effect", "explosion", "fetch", "sync", "clientdata", "getflag", "setflag", "setprop",
+        "playsound", "playmusic", "setmarker", "makemarker", "localeprint", "query", "jdraw"));
+
     final List<Object[]> code = new ArrayList<>();
     final List<JProError> errors = new ArrayList<>();
+    /** Cấp của processor: 1 = như logic processor, 2 = như world processor. */
+    final int level;
+    private int bindSites;
+
+    CodeGen(){
+        this(2);
+    }
+
+    CodeGen(int level){
+        this.level = level;
+    }
+
     private final Map<String, Fn> fns = new LinkedHashMap<>();
     private final Map<String, Object> consts = new HashMap<>();
     /** Biến final có giá trị chỉ biết lúc chạy: chỉ được gán lúc khai báo. Khóa = hàm + "." + tên. */
@@ -58,6 +76,11 @@ final class CodeGen{
     // ---------- tiện ích ----------
     private JProError err(Expr e, String m){ return new JProError(e.line, e.col, m); }
     private JProError err(Stmt s, String m){ return new JProError(s.line, s.col, m); }
+
+    /** Báo lỗi nếu tính năng chỉ có ở cấp 2 mà processor đang là cấp 1. */
+    private void needWorld(int line, int col, String what){
+        if(level < 2) throw new JProError(line, col, "'" + what + "' chỉ dùng được ở Processor cấp 2 (như world processor). Cấp 1 chỉ có các lệnh của logic processor");
+    }
 
     private void emit(Object... parts){ code.add(parts); }
     private void place(Label l){ l.index = code.size(); }
@@ -318,20 +341,23 @@ final class CodeGen{
             Member m = (Member)tg;
             String o = genExpr(m.base, null);
             if(binop == null){
-                setProp(o, m.prop, genExpr(a.value, null));
+                setProp(m, o, m.prop, genExpr(a.value, null));
             }else{
                 String t = temp();
                 emit("sensor", t, o, m.prop);
                 String v = genExpr(a.value, null);
                 emit("op", BIN.get(binop), t, t, v);
-                setProp(o, m.prop, t);
+                setProp(m, o, m.prop, t);
             }
         }
     }
 
-    private void setProp(String obj, String prop, String v){
+    private void setProp(Expr at, String obj, String prop, String v){
         if(prop.equals("@enabled") || prop.equals("@config")) emit("control", prop.substring(1), obj, v, "0", "0", "0");
-        else emit("setprop", prop, obj, v);
+        else{
+            needWorld(at.line, at.col, "Gán thuộc tính (" + prop + ", lệnh setprop)");
+            emit("setprop", prop, obj, v);
+        }
     }
 
     private void genIf(If s){
@@ -492,6 +518,8 @@ final class CodeGen{
                 continue;
             }
             List<String> toks = splitTokens(ln);
+            if(level < 2 && PRIVILEGED_OPS.contains(toks.get(0)))
+                throw new JProError(a.lineNos.get(i), 1, "Lệnh mlog '" + toks.get(0) + "' chỉ dùng được ở Processor cấp 2 (như world processor)");
             Object[] parts = toks.toArray(new Object[0]);
             if(toks.get(0).equals("jump") && toks.size() >= 2){
                 String tgt = toks.get(1);
@@ -683,10 +711,11 @@ final class CodeGen{
                 return null;
             }
         }
+        if("unit".equals(c.ns) && c.name.equals("bind") && c.args.size() == 2) return genBindSquad(c, dest, stmt);
         Builtin b = Builtins.find(c.ns, c.name);
         if(b == null){
             if(c.ns != null && !Builtins.isNamespace(c.ns))
-                throw err(c, "Không có nhóm hàm '" + c.ns + "'. Các nhóm: draw, unit, world, block, cutscene");
+                throw err(c, "Không có nhóm hàm '" + c.ns + "'. Các nhóm: draw, unit, block" + (level >= 2 ? ", world, cutscene, Draw, Drawf, Lines, Fill" : " (world, cutscene, Draw, Drawf, Lines, Fill chỉ có ở cấp 2)"));
             String sg = Builtins.suggest(c.ns, c.name);
             throw err(c, "Hàm '" + c.full() + "' không tồn tại" + (sg != null ? ". Ý bạn là '" + sg + "'?" : ""));
         }
@@ -694,6 +723,7 @@ final class CodeGen{
     }
 
     private String builtin(Builtin b, Call c, String dest, boolean stmt){
+        if(b.world) needWorld(c.line, c.col, b.key);
         int n = c.args.size();
         if(n < b.minArgs || n > b.maxArgs)
             throw err(c, "Sai số lượng tham số. Cách dùng: " + b.usage());
@@ -718,6 +748,77 @@ final class CodeGen{
             else parts[i] = p.arg < n ? ops[p.arg] : p.def;
         }
         emit(parts);
+        return res;
+    }
+
+    /**
+     * unit.bind(loại, số_lượng): giữ một "nhóm" tối đa số_lượng lính cùng loại.
+     * Mỗi lần gọi chuyển @unit sang lính kế tiếp của nhóm. Lính đang bị processor khác / người chơi / lệnh RTS
+     * điều khiển được bỏ qua. Lính của nhóm được đánh dấu bằng flag riêng của (processor, vị trí gọi) nên
+     * hai processor, hoặc hai chỗ gọi, không giành nhau.
+     * Số lính trong nhóm được đếm lại sau mỗi vòng quay hết danh sách lính của loại đó (lính chết/bị cướp thì được bù).
+     * Kết quả (nếu dùng như biểu thức): true nếu bind được một lính.
+     */
+    private String genBindSquad(Call c, String dest, boolean stmt){
+        String type = genExpr(c.args.get(0), null);
+        String count = genExpr(c.args.get(1), null);
+        String res = stmt ? null : (dest != null ? dest : temp());
+        int k = bindSites++;
+        String p = "__bind" + k + "_";
+        String tag = p + "tag", first = p + "first", found = p + "found", num = p + "n", dead = p + "d",
+            ctl = p + "c", flag = p + "f", own = p + "o", tries = p + "t";
+        Label retry = new Label(), none = new Label(), wrap = new Label(), noFirst = new Label(), classify = new Label(),
+            free = new Label(), accept = new Label(), skip = new Label(), end = new Label();
+
+        // nhãn riêng của nhóm = (x*1000 + y)*100 + số thứ tự chỗ gọi + 1
+        emit("op", "mul", tag, "@thisx", "1000");
+        emit("op", "add", tag, tag, "@thisy");
+        emit("op", "mul", tag, tag, "100");
+        emit("op", "add", tag, tag, Integer.toString(k % 99 + 1));
+        emit("set", tries, "0");
+        place(retry);
+        emit("ubind", type);
+        emit("jump", none, "equal", "@unit", "null");
+        // phát hiện đã quay hết một vòng danh sách lính
+        emit("jump", wrap, "equal", "@unit", first);
+        emit("jump", noFirst, "equal", first, "null");
+        emit("sensor", dead, first, "@dead");
+        emit("jump", wrap, "equal", dead, "1");
+        emit("jump", classify, "always", "0", "0");
+        place(noFirst);
+        emit("set", first, "@unit");
+        emit("set", found, "0");
+        emit("jump", classify, "always", "0", "0");
+        place(wrap);
+        emit("set", num, found);
+        emit("set", found, "0");
+        emit("set", first, "@unit");
+        // phân loại lính
+        place(classify);
+        emit("sensor", ctl, "@unit", "@controlled");
+        emit("sensor", flag, "@unit", "@flag");
+        emit("jump", free, "equal", ctl, "0");
+        emit("sensor", own, "@unit", "@controller");
+        emit("jump", skip, "notEqual", own, "@this");
+        emit("jump", skip, "notEqual", flag, tag);
+        emit("jump", accept, "always", "0", "0");
+        place(free);
+        emit("jump", accept, "equal", flag, tag);
+        emit("jump", skip, "greaterThanEq", num, count);
+        emit("op", "add", num, num, "1");
+        emit("ucontrol", "flag", tag, "0", "0", "0", "0");
+        emit("ucontrol", "idle", "0", "0", "0", "0", "0");
+        place(accept);
+        emit("op", "add", found, found, "1");
+        if(res != null) emit("set", res, "true");
+        jumpAlways(end);
+        place(skip);
+        emit("op", "add", tries, tries, "1");
+        emit("jump", retry, "lessThan", tries, "64");
+        place(none);
+        emit("ubind", "null");
+        if(res != null) emit("set", res, "false");
+        place(end);
         return res;
     }
 
