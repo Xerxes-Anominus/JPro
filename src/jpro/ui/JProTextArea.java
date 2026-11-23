@@ -71,14 +71,19 @@ public class JProTextArea extends TextArea{
         return n;
     }
 
+    // LƯU Ý: constructor của TextField gọi getPrefWidth()/getPrefHeight() NGAY khi khởi tạo
+    // (setSize(getPrefWidth(), getPrefHeight())), lúc đó các trường của lớp này (fieldStyle, runs...)
+    // chưa được gán -> NullPointerException -> crash game khi mở trình soạn mã. Vì vậy phải kiểm tra null.
     @Override
     public float getPrefWidth(){
+        if(fieldStyle == null) return super.getPrefWidth();
         ensure(fieldStyle.font, getText());
         return Math.max(super.getPrefWidth(), longest + padX() + 8f);
     }
 
     @Override
     public float getPrefHeight(){
+        if(fieldStyle == null) return super.getPrefHeight();
         float lh = fieldStyle.font.getLineHeight();
         return Math.max(super.getPrefHeight(), (lineCount(getText()) + 1) * lh + padY());
     }
