@@ -1,0 +1,3 @@
+// Cú pháp import chuẩn. Biên dịch standalone báo chưa resolve vì cần ngữ cảnh link trong game.
+import processor1.copper;
+importFunc processor1.a;
