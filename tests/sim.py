@@ -216,9 +216,9 @@ if(a != 0 && 10 / a > 1){ r = "sai"; } else { r = "ok"; }
 if(a == 0 || 10 / a > 1){ r = "ok!"; }
 print(r);''', "ok!"))
 # ---- cách viết cũ vẫn chạy (có ;) ----
-R.append(check("cú pháp cũ: let / const / fn / for in", '''
+R.append(check("cú pháp cũ: let / const / function / for in", '''
 const K = 2;
-fn nhan(x){ return x * K; }
+function nhan(x){ return x * K; }
 let tong = 0;
 for i in 0..4 { tong += nhan(i); }
 print(tong);''', "12"))

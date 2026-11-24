@@ -1,3 +1,3 @@
-// Cú pháp import chuẩn. Biên dịch standalone báo chưa resolve vì cần ngữ cảnh link trong game.
-import processor1.copper;
-importFunc processor1.a;
+// import/export directives have been removed; use LogicBlock read/write for Cells.
+read cell1[0] into value;
+write value to cell1[0];
