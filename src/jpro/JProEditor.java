@@ -91,7 +91,7 @@ public class JProEditor{
             }
         });
         dialog.buttons.button("@jpro.mlog", Icon.copy, () -> {
-            JPro.Result r = JPro.compile(area.getText(), build.level());
+            JPro.Result r = JPro.compile(area.getText(), build.level(), build.includeSources());
             if(!r.ok()){
                 status[0] = r.errors.get(0).getMessage();
                 moveCursor(area, area.getText(), r.errors.get(0).line, r.errors.get(0).col);
@@ -149,7 +149,7 @@ public class JProEditor{
      * @param force true = luôn nạp lại mlog (nút Biên dịch); false = chỉ nạp khi mã nguồn có đổi (tự lưu lúc thoát)
      */
     private static Saved save(JProProcessor.JProBuild build, String src, boolean force){
-        JPro.Result r = JPro.compile(src, build.level());
+        JPro.Result r = JPro.compile(src, build.level(), build.includeSources());
         String tooLong = null;
         boolean changed = !src.equals(build.source);
         if(r.ok() && (force || changed)){

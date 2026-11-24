@@ -3,6 +3,7 @@ package jpro;
 import arc.func.*;
 import arc.scene.ui.layout.*;
 import arc.util.io.*;
+import java.util.*;
 import mindustry.gen.*;
 import mindustry.logic.*;
 import mindustry.ui.*;
@@ -50,11 +51,7 @@ public class JProProcessor extends LogicBlock{
         config(String.class, (JProBuild build, String src) -> {
             if(src == null) return;
             build.source = src;
-            JPro.Result result = JPro.compile(src, build.level());
-            if(result.ok()){
-                byte[] packed = LogicBlock.compress(result.mlog, build.relativeConnections());
-                if(packed.length <= 16_000) build.configure(packed);
-            }
+            build.compileSourceAndApply(src);
         });
     }
 
@@ -67,6 +64,7 @@ public class JProProcessor extends LogicBlock{
     public class JProBuild extends LogicBuild{
         /** Mã nguồn JPro người dùng gõ. */
         public String source = DEFAULT_SOURCE;
+        private Map<String, String> includeSnapshot = Collections.emptyMap();
         /** Bộ đệm đang vẽ dở (Draw/Fill/Lines/Drawf, chỉ cấp 2). */
         public JDraw.Frame drawNext = new JDraw.Frame();
         /** Khung hình đang hiển thị trên thế giới; thay bằng drawNext mỗi lần Draw.flush(). */
@@ -76,6 +74,32 @@ public class JProProcessor extends LogicBlock{
             return level;
         }
 
+        /** Compile source against the current links and apply the compiled mlog only on success. */
+        public JPro.Result compileSourceAndApply(String src){
+            Map<String, String> linked = includeSources();
+            JPro.Result result = JPro.compile(src, level(), linked);
+            includeSnapshot = new LinkedHashMap<>(linked);
+            if(result.ok()){
+                byte[] packed = LogicBlock.compress(result.mlog, relativeConnections());
+                if(packed.length <= 16_000) configure(packed);
+            }
+            return result;
+        }
+
+        /** Source map for linked JPro processors, in linked order. */
+        public Map<String, String> includeSources(){
+            Map<String, String> out = new LinkedHashMap<>();
+            int alias = 0;
+            for(LogicLink link : links){
+                alias++;
+                Building target = world.build(link.x, link.y);
+                if(target instanceof JProProcessor.JProBuild){
+                    out.put("processor" + alias, ((JProProcessor.JProBuild)target).source);
+                }
+            }
+            return out;
+        }
+
         /** Draw.flush(): công bố những gì vừa vẽ. */
         public void drawFlush(){
             JDraw.Frame t = drawShown;
@@ -83,6 +107,16 @@ public class JProProcessor extends LogicBlock{
             drawNext = t;
             drawNext.clear();
             if(drawShown.count() > 0) JDraw.show(this);
+        }
+
+        @Override
+        public void updateTile(){
+            super.updateTile();
+            Map<String, String> current = includeSources();
+            if(!current.equals(includeSnapshot)){
+                // Recompile once after linked library source changes; retain old compiled code if compilation fails.
+                compileSourceAndApply(source);
+            }
         }
 
         @Override
