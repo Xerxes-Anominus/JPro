@@ -18,7 +18,7 @@ public final class Highlighter{
     // ---- các loại token ----
     public static final int
         DEFAULT = 0,
-        /** let var const fn final static void int double boolean true false null ... */
+        /** let var const function staticFunc final static void int double boolean true false null ... */
         KEYWORD = 1,
         /** if else while for switch case return break continue once loop end stop asm */
         CONTROL = 2,
