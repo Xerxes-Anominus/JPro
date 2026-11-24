@@ -49,25 +49,21 @@ final class Node{
     }
 
     // ----- câu lệnh -----
+    static final class Include extends Stmt{
+        final String alias;
+        Include(String alias){ this.alias = alias; }
+    }
     static final class Block extends Stmt{
         final List<Stmt> body;
         Block(List<Stmt> body){ this.body = body; }
     }
     static final class Let extends Stmt{
         final String name; final Expr init; final boolean isConst;
+        String type;
         /** final kiểu Java: hằng nếu giá trị cố định được, ngược lại là biến chỉ gán một lần. */
         boolean isFinal;
         Let(String name, Expr init, boolean isConst){ this.name = name; this.init = init; this.isConst = isConst; }
-    }
-    /** export <name>; / exportFunc <name>; */
-    static final class ExportDecl extends Stmt{
-        final String name; final boolean function;
-        ExportDecl(String name, boolean function){ this.name = name; this.function = function; }
-    }
-    /** import processorN.<name>; / importFunc processorN.<name>; */
-    static final class ImportDecl extends Stmt{
-        final String processor, name; final boolean function;
-        ImportDecl(String processor, String name, boolean function){ this.processor = processor; this.name = name; this.function = function; }
+        Let(String type, String name, Expr init, boolean isConst){ this(name, init, isConst); this.type = type; }
     }
     static final class FnDecl extends Stmt{
         final String name; final List<String> params; final Block body;
@@ -136,7 +132,9 @@ final class Node{
     static void walkStmt(Stmt s, StmtVisitor v){
         if(s == null) return;
         v.visit(s);
-        if(s instanceof Block){
+        if(s instanceof Include){
+            // Include directives are expanded before code generation.
+        }else if(s instanceof Block){
             for(Stmt c : ((Block)s).body) walkStmt(c, v);
         }else if(s instanceof FnDecl){
             walkStmt(((FnDecl)s).body, v);

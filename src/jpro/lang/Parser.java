@@ -1,6 +1,7 @@
 package jpro.lang;
 
 import java.util.*;
+import arc.Core;
 
 import jpro.lang.Lexer.Tok;
 import jpro.lang.Node.*;
@@ -13,7 +14,7 @@ import jpro.lang.Node.*;
  *   int cong(int a, int b){ return a + b; }       void chay(){ ... }
  *   if(a < b){ ... }else{ ... }     while(c){ ... }     for(int i = 0; i < 10; i++){ ... }
  *   switch(x){ case 1, 2 -> { ... }  default -> { ... } }   hoặc  case 1: ... break;
- * Các cách viết cũ (let, const, fn, for i in a..b, case 1 { }) vẫn được chấp nhận.
+ * Các cách viết ngắn (let, const, for i in a..b, case 1 { }) vẫn được chấp nhận.
  */
 final class Parser{
     /** Bắt buộc ';' cuối câu lệnh như Java. Đặt false để cho phép xuống dòng thay ';' như bản cũ. */
@@ -39,6 +40,10 @@ final class Parser{
         List<Stmt> out = new ArrayList<>();
         while(ps.peek().type != Tok.EOF) out.add(ps.stmt(true));
         return out;
+    }
+
+    private static String localized(String key,String fallback){
+        return Core.bundle != null && Core.bundle.has(key) ? Core.bundle.get(key) : fallback;
     }
 
     // ---------- tiện ích ----------
@@ -104,7 +109,7 @@ final class Parser{
     /** Token có thể là tên kiểu: int, String, Unit, ... (không tính các từ khóa điều khiển). */
     private static boolean typeName(Tok a){
         return a.type == Tok.IDENT
-            && (Syntax.PRIMITIVE.contains(a.text) || a.text.equals("void") || !KEYWORDS.contains(a.text));
+            && (Syntax.PRIMITIVE.contains(a.text) || a.text.equals("void") || a.text.equals("Nasp") || !KEYWORDS.contains(a.text));
     }
 
     private static boolean varName(Tok b){
@@ -147,14 +152,20 @@ final class Parser{
         if(k.type == Tok.IDENT){
             if(Syntax.MODIFIERS.contains(k.text)) return modified(top);
             switch(k.text){
-                case "export": if(!top) throw err(k, "export chỉ được khai báo ở ngoài cùng"); return exportDecl(false);
-                case "exportFunc": if(!top) throw err(k, "exportFunc chỉ được khai báo ở ngoài cùng"); return exportDecl(true);
-                case "import": if(!top) throw err(k, "import chỉ được khai báo ở ngoài cùng"); return importDecl(false);
-                case "importFunc": if(!top) throw err(k, "importFunc chỉ được khai báo ở ngoài cùng"); return importDecl(true);
+                case "include": {
+                    if(!top) throw err(k, localized("jpro.include.top", "include is only allowed at top level"));
+                    next();
+                    Tok alias = peek();
+                    if(alias.type != Tok.IDENT || !alias.text.matches("processor[1-9][0-9]*"))
+                        throw err(alias, localized("jpro.include.alias", "Expected a linked processor alias such as processor1"));
+                    next();
+                    endStmt();
+                    return mark(new Include(alias.text), k);
+                }
                 case "let": case "var": return let(false);
                 case "const": return let(true);
-                case "fn":
-                    if(!top) throw err(k, "Hàm chỉ được khai báo ở ngoài cùng (không lồng trong khối khác)");
+                case "function":
+                    if(!top) throw err(k, "Function declarations must be top-level");
                     return fn();
                 case "if": return ifStmt();
                 case "while": {
@@ -199,26 +210,6 @@ final class Parser{
         return simple(true);
     }
 
-    /** export tên; hoặc exportFunc tên; */
-    private Stmt exportDecl(boolean function){
-        Tok k = next();
-        String name = ident(function ? "tên hàm export" : "tên biến export");
-        endStmt();
-        return mark(new ExportDecl(name, function), k);
-    }
-
-    /** import processorN.tên; hoặc importFunc processorN.tên; */
-    private Stmt importDecl(boolean function){
-        Tok k = next();
-        String processor = ident("alias processor (processor1, processor2, ...)");
-        if(!processor.matches("processor[1-9][0-9]*"))
-            throw err(k, "Alias import phải có dạng processor1, processor2, ...");
-        expect(".");
-        String name = ident(function ? "tên hàm import" : "tên biến import");
-        endStmt();
-        return mark(new ImportDecl(processor, name, function), k);
-    }
-
     /** Bắt đầu bằng final / static / public / private / protected. */
     private Stmt modified(boolean top){
         Tok first = peek();
@@ -233,8 +224,8 @@ final class Parser{
             return markFinal(s, fin, k);
         }
         if(k.is("const")) return let(true);
-        if(k.is("fn")){
-            if(!top) throw err(k, "Hàm chỉ được khai báo ở ngoài cùng (không lồng trong khối khác)");
+        if(k.is("function")){
+            if(!top) throw err(k, "Function declarations must be top-level");
             return fn();
         }
         if(typedHead(0)) return typed(top, fin);
@@ -264,7 +255,7 @@ final class Parser{
         if(accept("=")) init = expr();
         else if(fin) throw err(nameTok, "final cần có giá trị: final " + type.text + " " + name + " = ...;");
         endStmt();
-        Let l = mark(new Let(name, init, false), type);
+        Let l = mark(new Let(type.text, name, init, false), type);
         l.isFinal = fin;
         return l;
     }
@@ -280,10 +271,10 @@ final class Parser{
         return mark(new Let(name, init, isConst), k);
     }
 
-    /** fn tên(a, b) { ... } — cách viết cũ. */
+    /** function name(a, b) { ... }. */
     private Stmt fn(){
         Tok k = next();
-        String name = ident("tên hàm");
+        String name = ident("function name");
         return fnRest(null, k, name);
     }
 
@@ -392,7 +383,7 @@ final class Parser{
         String name = ident("tên biến");
         Expr init = null;
         if(accept("=")) init = expr();
-        Let l = mark(new Let(name, init, false), type);
+        Let l = mark(new Let(type.text, name, init, false), type);
         l.isFinal = fin && init != null;
         return l;
     }
@@ -647,6 +638,7 @@ final class Parser{
                 switch(k.text){
                     case "true": case "false": case "null": return mark(new Lit(k.text), k);
                     case "this": return mark(new At("this"), k);
+                    case "include": return mark(new Name(k.text), k);
                     default:
                         if(KEYWORDS.contains(k.text)) throw err(k, "'" + k.text + "' là từ khóa, không dùng trong biểu thức được");
                         return mark(new Name(k.text), k);

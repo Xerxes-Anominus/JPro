@@ -36,10 +36,15 @@ public final class JPro{
 
     /** level 1 = như logic processor (không có lệnh world, Draw/Fill/Lines...), level 2 = như world processor. */
     public static Result compile(String src, int level){
+        return compile(src, level, Collections.<String, String>emptyMap());
+    }
+
+    /** Compile with linked processor source aliases (processor1, processor2, ...). */
+    public static Result compile(String src, int level, Map<String, String> includeSources){
         List<JProError> errs = new ArrayList<>();
         List<Stmt> prog;
         try{
-            prog = Parser.parse(src);
+            prog = IncludeExpander.expand(Parser.parse(src), includeSources);
         }catch(JProError e){
             errs.add(e);
             return new Result("", errs);

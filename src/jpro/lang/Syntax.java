@@ -16,13 +16,12 @@ public final class Syntax{
     /** Điều khiển luồng: if, for, switch, return... (và các từ riêng của JPro: once, end, stop). */
     public static final Set<String> CONTROL = set(
         "if", "else", "while", "for", "loop", "switch", "case", "default",
-        "break", "continue", "return", "end", "stop", "once", "asm",
-        "export", "exportFunc", "import", "importFunc"
+        "break", "continue", "return", "end", "stop", "once", "asm", "include"
     );
 
-    /** Khai báo và bổ từ: final, static, void... (let / var / const / fn là cách viết cũ, vẫn dùng được). */
+    /** Khai báo và bổ từ: final, static, void... (let / var / const là cách viết ngắn, vẫn dùng được). */
     public static final Set<String> DECLARE = set(
-        "let", "var", "const", "fn", "final", "static", "public", "private", "protected", "void"
+        "let", "var", "const", "function", "staticFunc", "final", "static", "public", "private", "protected", "void", "Nasp"
     );
 
     /** Bổ từ có thể đặt trước khai báo, như trong Java. */
