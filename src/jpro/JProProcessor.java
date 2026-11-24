@@ -4,6 +4,8 @@ import arc.func.*;
 import arc.scene.ui.layout.*;
 import arc.util.io.*;
 import java.util.*;
+
+import mindustry.Vars;
 import mindustry.gen.*;
 import mindustry.logic.*;
 import mindustry.ui.*;
@@ -92,7 +94,7 @@ public class JProProcessor extends LogicBlock{
             int alias = 0;
             for(LogicLink link : links){
                 alias++;
-                Building target = world.build(link.x, link.y);
+                Building target = Vars.world.build(link.x, link.y);
                 if(target instanceof JProProcessor.JProBuild){
                     out.put("processor" + alias, ((JProProcessor.JProBuild)target).source);
                 }
